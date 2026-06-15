@@ -1,0 +1,59 @@
+:root,
+[data-theme='dark'] {
+  --paper: #d8b982;
+  --paper-light: #e8d4a8;
+  --coffee: #3a2415;
+  --ink: #1e1712;
+  --gold: #b88a3b;
+  --fire: #8c2f1b;
+  --stone: #2e2a26;
+
+  --bg-dark: #1e1712;       /* 深色:背景是墨黑 */
+  --bg-card: #2e2a26;
+  --text-main: #f0e6d2;     /* 深色:文字是淺牛皮 */
+  --text-dark: var(--coffee);
+  --accent: var(--fire);
+
+  --font-title: 'Noto Serif TC', serif;
+  --font-body: 'Noto Sans TC', sans-serif;
+  --read-width: 760px;
+  --line-tall: 1.9;
+}
+
+/* === 淺色模式 === */
+[data-theme='light'] {
+  --paper: #d8b982;
+  --paper-light: #f3e8cf;
+  --coffee: #3a2415;
+  --ink: #1e1712;
+  --gold: #9a6f2a;
+  --fire: #8c2f1b;
+  --stone: #e8dcc0;
+
+  --bg-dark: #ece0c4;       /* 淺色:背景變成淺羊皮紙 */
+  --bg-card: #f3e8cf;
+  --text-main: #3a2415;     /* 淺色:文字變成深咖啡 */
+  --text-dark: var(--coffee);
+  --accent: var(--fire);
+}
+
+/* === 全站基礎重置 === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.6;
+  
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
