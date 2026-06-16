@@ -148,26 +148,82 @@ margin-left: -60px;
 }
 
 /* 手機版 */
-@media (max-width: 768px) {
+/* === 平板:768px ~ 1024px === */
+@media (max-width: 1024px) {
   .hero {
-    min-height: 440px;
-    padding: 40px 24px;
+    min-height: 90vh;
+    padding: 160px 40px 60px;
   }
 
   .hero-content {
+    margin-left: 40px;
+    max-width: 440px;
+    gap: 28px;
+  }
+
+  .hero-logo img {
+    height: 90px;
+  }
+
+  .hero-subtitle {
+    font-size: 22px;
+    line-height: 1.9;
+  }
+}
+
+/* === 手機:≤ 768px === */
+@media (max-width: 768px) {
+  .hero {
+    min-height: 85vh;
+    padding: 140px 24px 50px;
+    /* 文字置中對齊 */
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* 圖上加半透明深色遮罩,讓文字浮出來 */
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 14, 8, 0.55);
+    z-index: 0;
+  }
+
+  /* 內容區置中、移除左邊距、疊在遮罩上層 */
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    margin-left: 0;
+    max-width: 100%;
+    align-items: center;
     gap: 24px;
   }
 
   .hero-logo img {
-    height: 80px;
+    height: 72px;
   }
 
+  /* 標語置中,拿掉左邊那條金線(置中時左線會怪)*/
   .hero-subtitle {
     font-size: 18px;
+    line-height: 1.9;
+    letter-spacing: 2px;
+    text-align: center;
+    padding-left: 0;
+    border-left: none;
   }
 
   .hero-actions {
     flex-direction: column;
+    align-items: center;
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .btn {
+    width: 100%;
+    max-width: 280px;
   }
 }
 </style>
