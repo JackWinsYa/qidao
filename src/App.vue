@@ -1,25 +1,7 @@
 <script setup lang="ts">
-import TheHeader from './components/TheHeader.vue'
-import TheHero from './components/TheHero.vue'
-import SectionCards from './components/SectionCards.vue'
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <div class="layout">
-    <TheHeader />
-    <div class="top-section">
-      <TheHero />
-    </div>
-    <SectionCards />
-  </div>
+  <RouterView />
 </template>
-
-<style scoped>
-.layout {
-  min-height: 100vh;
-}
-
-.top-section {
-  position: relative;
-}
-</style>

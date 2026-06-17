@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Search } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
+import { useRouter } from 'vue-router'
 
 const navItems = [
   { label: '首頁', en: 'HOME' },
@@ -19,7 +20,7 @@ function toggleMenu() {
 }
 
 const themeStore = useThemeStore()
-
+const router = useRouter()
 const scrolled = ref(false)
 const expanded = ref(false)   // 小方塊點開後,導覽列是否展開
 
@@ -56,7 +57,7 @@ onUnmounted(() => {
         :key="item.en"
         class="nav-item"
         href="#"
-        @click="menuOpen = false"
+        @click.prevent="item.en === 'READ' ? router.push('/read') : (menuOpen = false)"
       >
         <span class="nav-cn">{{ item.label }}</span>
         <span class="nav-en">{{ item.en }}</span>

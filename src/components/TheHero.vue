@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function goRead() {
+  router.push('/read')
+}
 </script>
 
 <template>
@@ -17,16 +24,16 @@
       </p>
 
       <!-- 板塊三:兩顆按鈕 -->
-      <div class="hero-actions">
-  <button class="btn btn-primary">
-    <span class="btn-cn">開始閱讀</span>
-    <span class="btn-en">READ NOW</span>
-  </button>
-  <button class="btn btn-secondary">
-    <span class="btn-cn">進入書庫</span>
-    <span class="btn-en">LIBRARY</span>
-  </button>
-</div>
+       <div class="hero-actions">
+        <button class="btn btn-primary" @click="goRead">
+          <span class="btn-cn">開始閱讀</span>
+          <span class="btn-en">READ NOW</span>
+        </button>
+        <button class="btn btn-secondary" @click="goRead">
+          <span class="btn-cn">進入書庫</span>
+          <span class="btn-en">LIBRARY</span>
+        </button>
+      </div>
     </div>
   </section>
 </template>
