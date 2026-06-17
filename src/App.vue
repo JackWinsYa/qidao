@@ -6,13 +6,11 @@ import SectionCards from './components/SectionCards.vue'
 
 <template>
   <div class="layout">
+    <TheHeader />
     <div class="top-section">
-      <div class="header-overlay">
-        <TheHeader />
-      </div>
       <TheHero />
     </div>
-      <SectionCards />
+    <SectionCards />
   </div>
 </template>
 
@@ -23,14 +21,5 @@ import SectionCards from './components/SectionCards.vue'
 
 .top-section {
   position: relative;
-}
-
-/* 導覽列絕對定位,浮在英雄區最上方 */
-.header-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
 }
 </style>
