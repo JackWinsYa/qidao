@@ -107,8 +107,8 @@ function buildBookFromFiles(
 export const loenBook: Book = buildBookFromFiles(
   {
     id: 'loen',
-    title: '灰燼之風 · 洛恩傳',
-    author: '墨痕',
+    title: '棄道',
+    author: '髒髒',
     tags: ['奇幻', '冒險', '成長'],
     cover: '/src/assets/images/cover-loen.png',
   },

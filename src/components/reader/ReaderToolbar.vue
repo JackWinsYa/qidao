@@ -7,6 +7,7 @@ defineProps<{
   isDark: boolean
   hasPrev: boolean
   hasNext: boolean
+  isMobile?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -40,17 +41,17 @@ const emit = defineEmits<{
       <span class="ts-icon ts-moon">☾</span>
     </button>
 
-    <div class="tool-mode">
+    <div class="tool-mode" v-if="!isMobile">
       <button :class="{ active: pageMode === 'flip' }" @click="emit('setPageMode', 'flip')">翻頁</button>
       <button :class="{ active: pageMode === 'scroll' }" @click="emit('setPageMode', 'scroll')">滑動</button>
     </div>
 
     <div class="tool-nav">
       <button class="nav-btn" :disabled="!hasPrev" @click="emit('prevChapter')">
-        <ChevronLeft :size="16" /> 上一章
+        <ChevronLeft :size="16" /> <span class="nav-label">上一章</span>
       </button>
       <button class="nav-btn primary" :disabled="!hasNext" @click="emit('nextChapter')">
-        下一章 <ChevronRight :size="16" />
+        <span class="nav-label">下一章</span> <ChevronRight :size="16" />
       </button>
     </div>
   </div>
@@ -114,6 +115,24 @@ const emit = defineEmits<{
 .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 @media (max-width: 768px) {
-  .toolbar { gap: 12px; padding: 8px 14px; flex-wrap: wrap; max-width: 92vw; justify-content: center; }
+  .toolbar {
+    gap: 14px;
+    padding: 8px 16px;
+    bottom: 14px;
+    max-width: 94vw;
+    justify-content: center;
+  }
+  /* 手機:上下章只留箭頭,省空間 */
+  .nav-label { display: none; }
+  .nav-btn { padding: 7px 12px; }
+  .tool-font { gap: 8px; }
+  .font-btn { font-size: 17px; }
+  .font-val { min-width: 40px; font-size: 13px; }
+}
+
+/* 更窄(小手機):字級數值也藏掉,只留 A- A+ */
+@media (max-width: 380px) {
+  .toolbar { gap: 10px; padding: 7px 12px; }
+  .font-val { display: none; }
 }
 </style>

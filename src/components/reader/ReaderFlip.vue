@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRef, onMounted, onUnmounted, nextTick, } from 'vue'
+import { ref, toRef, onMounted, onUnmounted, nextTick,} from 'vue'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import type { FlatChapter } from '@/types/novel'
 import ReaderChapterBody from './ReaderChapterBody.vue'
@@ -174,10 +174,22 @@ defineExpose({ flipPrev, flipNext })
 .flip-prev { left: 24px; }
 .flip-next { right: 24px; }
 
+@media (max-width: 1024px) {
+  /* 平板:左右 padding 縮小(翻頁鈕也縮),viewport 與 measure 同步 */
+  .flip-viewport { padding: 56px 70px 120px; }
+  .measure-layer { padding: 56px 70px 120px; }
+  .flip-btn { width: 48px; height: 48px; }
+  .flip-prev { left: 14px; }
+  .flip-next { right: 14px; }
+}
+
 @media (max-width: 768px) {
-  .flip-viewport { padding: 50px 64px 80px; }
-  .flip-btn { width: 44px; height: 44px; }
-  .flip-prev { left: 10px; }
-  .flip-next { right: 10px; }
+  /* 手機:再縮,但通常已偏好滑動模式 */
+  .flip-viewport { padding: 50px 54px 110px; }
+  .measure-layer { padding: 50px 54px 110px; }
+  .flip-btn { width: 42px; height: 42px; }
+  .flip-prev { left: 8px; }
+  .flip-next { right: 8px; }
+  .flip-pageinfo { bottom: 74px; }
 }
 </style>
