@@ -22,7 +22,7 @@ export function usePagination(opts: {
   // 等字體載入完成(避免量到 fallback 字體的高度)
   async function waitFonts() {
     try {
-      // @ts-ignore - document.fonts 在現代瀏覽器皆有
+      /// @ts-ignore - document.fonts 在現代瀏覽器皆有
       if (document.fonts?.ready) await document.fonts.ready
     } catch {
       /* 忽略 */
