@@ -1,123 +1,74 @@
-import type { Book, Volume, Chapter } from '@/types/novel'
+import type { Book } from '@/types/novel'
 
-// === Markdown 章節格式說明 ===
-// 每個章節是一個 .md 檔,放在 src/content/<bookId>/ 底下。
-// 檔名建議:卷號-章號.md,例如 02-26.md(第二卷第26章),方便排序。
-// 檔案最上面用 frontmatter 設定中繼資料,內文直接寫:
-//
-//   ---
-//   volume: 孤行荒原
-//   volumeId: vol2
-//   volumeOrder: 2
-//   number: 第二十六章
-//   title: 沒有屋簷的夜
-//   index: 26
-//   ---
-//
-//   老馬的蹄聲,在荒路上響了整整七天。
-//   第七天清晨,洛恩是在車廂角落裡醒來的。
-//
-//   (空一行代表分段落)
+// 執行時打後端 API。dev 透過 vite.config 的 proxy 轉到 http://localhost:3001
+const API_BASE = '/api'
 
-interface ParsedMd {
-  meta: Record<string, string>
-  body: string
+export const DEFAULT_BOOK_ID = 'loen'
+
+export function emptyBook(id = DEFAULT_BOOK_ID): Book {
+  return { id, title: '載入中…', author: '', tags: [], cover: '', volumes: [] }
 }
 
-// 解析 frontmatter 與內文
-function parseFrontmatter(raw: string): ParsedMd {
-  const meta: Record<string, string> = {}
-  const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/)
-  let body = raw
-  if (fmMatch) {
-    const fmBlock = fmMatch[1]
-    body = raw.slice(fmMatch[0].length)
-    for (const line of fmBlock.split('\n')) {
-      const idx = line.indexOf(':')
-      if (idx === -1) continue
-      const key = line.slice(0, idx).trim()
-      const val = line.slice(idx + 1).trim()
-      if (key) meta[key] = val
-    }
+export async function fetchBook(id: string = DEFAULT_BOOK_ID): Promise<Book> {
+  const res = await fetch(`${API_BASE}/books/${id}`)
+  if (!res.ok) {
+    const msg = await res.json().catch(() => ({}))
+    throw new Error(msg.error || `讀取失敗(${res.status})`)
   }
-  return { meta, body: body.trim() }
+  return (await res.json()) as Book
 }
 
-// 把內文切成段落:以空行分段,單一換行也視為段落(小說常見一句一行)
-function toParagraphs(body: string): string[] {
-  // 先用「空行」切大段;每個大段內若有單換行,也各自成段
-  return body
-    .split(/\n/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0)
+export interface ChapterPayload {
+  volumeOrder: number
+  volumeTitle: string
+  chapterIndex: number
+  number?: string
+  title: string
+  content: string
 }
 
-// 用 Vite glob 掃描某本書資料夾底下所有 md(eager 直接讀字串)
-// 注意:glob 路徑必須是字面量,所以這裡針對 loen 這本書寫死路徑。
-// 之後要加新書,複製一份這個 loader、改路徑即可。
-const loenFiles = import.meta.glob('@/content/loen/*.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>
-
-function buildBookFromFiles(
-  bookMeta: Omit<Book, 'volumes'>,
-  files: Record<string, string>,
-): Book {
-  const volumeMap = new Map<string, Volume>()
-
-  // 依檔名排序,確保章節順序穩定
-  const entries = Object.entries(files).sort(([a], [b]) => a.localeCompare(b))
-
-  for (const [, raw] of entries) {
-    const { meta, body } = parseFrontmatter(raw)
-    const volumeId = meta.volumeId || 'vol1'
-
-    if (!volumeMap.has(volumeId)) {
-      volumeMap.set(volumeId, {
-        id: volumeId,
-        title: meta.volume || '未命名卷',
-        order: Number(meta.volumeOrder ?? 1),
-        chapters: [],
-      })
-    }
-
-    const chapter: Chapter = {
-      id: meta.id || `ch${meta.index ?? volumeMap.get(volumeId)!.chapters.length + 1}`,
-      index: Number(meta.index ?? 0),
-      volumeId,
-      number: meta.number || '',
-      title: meta.title || '未命名章節',
-      paragraphs: toParagraphs(body),
-    }
-    volumeMap.get(volumeId)!.chapters.push(chapter)
-  }
-
-  const volumes = Array.from(volumeMap.values()).sort((a, b) => a.order - b.order)
-  // 每卷內章節依 index 排序
-  for (const v of volumes) {
-    v.chapters.sort((a, b) => a.index - b.index)
-  }
-
-  return { ...bookMeta, volumes }
+export interface ChapterDetail extends Required<ChapterPayload> {
+  file: string
 }
 
-// === 對外匯出:洛恩傳這本書 ===
-export const loenBook: Book = buildBookFromFiles(
-  {
-    id: 'loen',
-    title: '棄道',
-    author: '髒髒',
-    tags: ['奇幻', '冒險', '成長'],
-    cover: '/src/assets/images/cover-loen.png',
-  },
-  loenFiles,
-)
+// 讀單一章節(編輯帶入用)
+export async function fetchChapter(
+  chapterId: string,
+  bookId: string = DEFAULT_BOOK_ID,
+): Promise<ChapterDetail> {
+  const res = await fetch(`${API_BASE}/books/${bookId}/chapters/${chapterId}`)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `讀取失敗(${res.status})`)
+  return data as ChapterDetail
+}
 
-// 之後若有多本書,在這裡集中匯出
-export const books: Book[] = [loenBook]
+// 新增章節
+export async function uploadChapter(
+  payload: ChapterPayload,
+  bookId: string = DEFAULT_BOOK_ID,
+): Promise<{ ok: boolean; file: string; message: string }> {
+  const res = await fetch(`${API_BASE}/books/${bookId}/chapters`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `新增失敗(${res.status})`)
+  return data
+}
 
-export function getBook(id: string): Book | undefined {
-  return books.find((b) => b.id === id)
+// 更新章節
+export async function updateChapter(
+  chapterId: string,
+  payload: ChapterPayload,
+  bookId: string = DEFAULT_BOOK_ID,
+): Promise<{ ok: boolean; file: string; message: string }> {
+  const res = await fetch(`${API_BASE}/books/${bookId}/chapters/${chapterId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `更新失敗(${res.status})`)
+  return data
 }

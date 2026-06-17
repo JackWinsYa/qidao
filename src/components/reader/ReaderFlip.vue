@@ -119,7 +119,7 @@ defineExpose({ flipPrev, flipNext })
 
 <style scoped>
 .flip-wrap { position: relative; height: 100%; }
-.flip-viewport { height: 100%; padding: 60px 90px 140px; overflow: hidden; }
+.flip-viewport { height: 100%; padding: 60px 90px 110px; overflow: hidden; }
 .flip-viewport .page { height: 100%; margin: 0 auto; }
 
 .flip-pageinfo {

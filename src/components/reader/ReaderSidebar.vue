@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bookmark, ChevronDown, ChevronRight, List } from 'lucide-vue-next'
+import { Bookmark, ChevronDown, ChevronRight, List, Settings } from 'lucide-vue-next'
 import type { Book } from '@/types/novel'
 
 defineProps<{
@@ -12,6 +12,7 @@ defineProps<{
 const emit = defineEmits<{
   toggleVolume: [id: string]
   selectChapter: [chapterId: string]
+  editChapter: [chapterId: string]
 }>()
 </script>
 
@@ -49,7 +50,17 @@ const emit = defineEmits<{
               @click="emit('selectChapter', ch.id)"
             >
               <span class="chap-text">{{ ch.number }} {{ ch.title }}</span>
-              <Bookmark :size="14" class="chap-bm" />
+              <span class="chap-icons">
+                <!-- 齒輪:編輯該章(在書籤左邊)。stop 避免觸發選章 -->
+                <Settings
+                  :size="14"
+                  class="chap-edit"
+                  role="button"
+                  aria-label="編輯本章"
+                  @click.stop="emit('editChapter', ch.id)"
+                />
+                <Bookmark :size="14" class="chap-bm" />
+              </span>
             </li>
           </ul>
         </transition>
@@ -71,7 +82,12 @@ const emit = defineEmits<{
   border-right: 1px solid rgba(184,138,59,0.35);
   display: flex; flex-direction: column; overflow-y: auto;
   transition: width 0.35s ease, flex-basis 0.35s ease, opacity 0.25s ease;
+
+  /* 隱藏捲軸外觀(仍可捲動)：展開卷時不再冒出那條 scroll bar */
+  scrollbar-width: none;            /* Firefox */
+  -ms-overflow-style: none;         /* 舊版 Edge/IE */
 }
+.sidebar::-webkit-scrollbar { width: 0; height: 0; display: none; } /* WebKit */
 
 .book-card { display: flex; gap: 14px; padding: 20px 18px; margin: 14px; border: 1px solid rgba(184,138,59,0.4); border-radius: 8px; background: rgba(0,0,0,0.25); }
 .book-cover { flex: 0 0 64px; height: 84px; border-radius: 4px; overflow: hidden; background: linear-gradient(160deg, #2a2018, #15100b); border: 1px solid rgba(184,138,59,0.3); }
@@ -92,8 +108,13 @@ const emit = defineEmits<{
 .chap { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px 11px 26px; color: #a98c5e; font-size: 14px; cursor: pointer; border-radius: 6px; transition: background 0.2s, color 0.2s; }
 .chap:hover { color: #e8d4a8; background: rgba(184,138,59,0.08); }
 .chap.active { color: #f3e2b3; background: rgba(184,138,59,0.16); box-shadow: inset 2px 0 0 var(--gold); }
-.chap-bm { opacity: 0.35; flex: 0 0 auto; }
 .chap-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 章節右側兩顆 icon:齒輪 + 書籤 */
+.chap-icons { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.chap-edit { opacity: 0.35; cursor: pointer; transition: opacity 0.2s, color 0.2s; }
+.chap-edit:hover { opacity: 1; color: #f0d89a; }
+.chap-bm { opacity: 0.35; }
 
 .toc-full { display: flex; align-items: center; gap: 10px; margin: 10px 14px 18px; padding: 14px 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(184,138,59,0.4); border-radius: 8px; color: #cda869; font-family: var(--font-title); font-size: 15px; cursor: pointer; transition: all 0.2s; }
 .toc-full:hover { color: #f0d89a; border-color: var(--gold); }

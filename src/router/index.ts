@@ -14,6 +14,12 @@ const router = createRouter({
       name: 'reader',
       component: () => import('@/views/ReaderView.vue'),
     },
+    {
+      // 專屬上傳後台
+      path: '/upload',
+      name: 'upload',
+      component: () => import('@/views/UploadView.vue'),
+    },
   ],
 })
 

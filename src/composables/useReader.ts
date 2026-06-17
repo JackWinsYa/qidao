@@ -3,7 +3,6 @@ import type { Book, FlatChapter } from '@/types/novel'
 
 // 把整本書的卷/章攤平成一維陣列,方便算「上一章/下一章」與目錄渲染
 export function useReader(book: Ref<Book>) {
-  // 攤平的章節清單(依卷序、章序)
   const flatChapters = computed<FlatChapter[]>(() => {
     const list: FlatChapter[] = []
     for (const volume of book.value.volumes) {
@@ -14,7 +13,6 @@ export function useReader(book: Ref<Book>) {
     return list
   })
 
-  // 目前章節在攤平清單裡的位置
   const currentIndex = ref(0)
 
   const current = computed(() => flatChapters.value[currentIndex.value])
@@ -32,26 +30,16 @@ export function useReader(book: Ref<Book>) {
     if (idx !== -1) currentIndex.value = idx
   }
 
-  return {
-    flatChapters,
-    currentIndex,
-    current,
-    hasPrev,
-    hasNext,
-    goPrev,
-    goNext,
-    goTo,
-  }
+  return { flatChapters, currentIndex, current, hasPrev, hasNext, goPrev, goNext, goTo }
 }
 
-// 閱讀偏好設定(字級、翻頁/滑動模式),集中一處管理
 const FONT_MIN = 80
 const FONT_MAX = 160
 const FONT_STEP = 10
 
 export function useReaderPrefs() {
-  const fontScale = ref(100) // 百分比,對應設計圖底部的 100%
-  const pageMode = ref<'scroll' | 'flip'>('scroll') // 滑動式 / 翻頁式
+  const fontScale = ref(100)
+  const pageMode = ref<'scroll' | 'flip'>('scroll')
 
   function fontDown() {
     fontScale.value = Math.max(FONT_MIN, fontScale.value - FONT_STEP)
