@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import type { FlatChapter } from '@/types/novel'
 import ReaderChapterBody from './ReaderChapterBody.vue'
 
 const props = defineProps<{
   current: FlatChapter | undefined
   fontSize: string
+  highlightIndex?: number
 }>()
 
 const scrollEl = ref<HTMLElement | null>(null)
@@ -14,6 +15,20 @@ const scrollEl = ref<HTMLElement | null>(null)
 watch(
   () => props.current,
   () => scrollEl.value?.scrollTo({ top: 0, behavior: 'smooth' }),
+)
+
+// 朗讀進度變化 → 自動捲到正在念的段落,讓它保持在視野中
+watch(
+  () => props.highlightIndex,
+  async (idx) => {
+    if (idx == null || idx < 0 || !scrollEl.value) return
+    await nextTick()
+    const paras = scrollEl.value.querySelectorAll('.para')
+    const target = paras[idx] as HTMLElement | undefined
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  },
 )
 </script>
 
@@ -25,23 +40,20 @@ watch(
         :chapter="current.chapter"
         :paragraphs="current.chapter.paragraphs"
         :show-header="true"
+        :highlight-index="highlightIndex"
       />
     </div>
   </article>
 </template>
 
 <style scoped>
-
-/* 自訂捲軸:明顯的金色 */
 .content.scroll {
-  scrollbar-width: auto;                          /* Firefox:正常寬度 */
+  scrollbar-width: auto;
   scrollbar-color: var(--gold) rgba(58,36,21,0.15);
 }
-.content.scroll::-webkit-scrollbar {
-  width: 14px;
-}
+.content.scroll::-webkit-scrollbar { width: 14px; }
 .content.scroll::-webkit-scrollbar-track {
-  background: rgba(58,36,21,0.12);                /* 軌道:淡咖啡 */
+  background: rgba(58,36,21,0.12);
   border-radius: 7px;
 }
 .content.scroll::-webkit-scrollbar-thumb {
