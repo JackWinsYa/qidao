@@ -1,9 +1,10 @@
 // 棄道 — 後端
 // 路由:
 //   GET  /api/books/:bookId                          讀整本書
-//   GET  /api/books/:bookId/chapters/:chapterId       讀單一章節(編輯時帶入用)
-//   POST /api/books/:bookId/chapters                  新增章節(寫 md,重複會擋)
-//   PUT  /api/books/:bookId/chapters/:chapterId       更新章節(可覆蓋;改卷章號會搬檔)
+//   GET  /api/books/:bookId/volumes                   讀卷清單(上傳頁下拉用)
+//   GET  /api/books/:bookId/chapters/:chapterId       讀單一章節(編輯帶入用)
+//   POST /api/books/:bookId/chapters                  新增章節
+//   PUT  /api/books/:bookId/chapters/:chapterId       更新章節
 
 import express from 'express'
 import fs from 'node:fs/promises'
@@ -17,12 +18,64 @@ const contentDir = (bookId) => path.join(ROOT, 'src', 'content', bookId)
 const app = express()
 app.use(express.json({ limit: '2mb' }))
 
-// 安撫 Chrome DevTools 的探測請求,避免 console 紅字
 app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
   res.status(204).end()
 })
 
-// === 共用解析(與前端 loadNovel 同邏輯)===
+// === 中文數字轉換(與前端 src/utils/chineseNumber.ts 同邏輯)===
+const CN_DIGITS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+const CN_UNITS = ['', '十', '百', '千']
+function convertSection(num) {
+  if (num === 0) return ''
+  let result = ''
+  let zeroFlag = false
+  let started = false
+  const digits = String(num).padStart(4, '0').split('').map(Number)
+  for (let i = 0; i < 4; i++) {
+    const d = digits[i]
+    const unitIndex = 3 - i
+    if (d === 0) {
+      if (started) zeroFlag = true
+    } else {
+      if (zeroFlag) {
+        result += CN_DIGITS[0]
+        zeroFlag = false
+      }
+      result += CN_DIGITS[d] + CN_UNITS[unitIndex]
+      started = true
+    }
+  }
+  return result
+}
+function toChineseNumber(num) {
+  if (!Number.isFinite(num) || num < 0) return String(num)
+  num = Math.floor(num)
+  if (num === 0) return CN_DIGITS[0]
+  const wan = Math.floor(num / 10000)
+  const rest = num % 10000
+  let result = ''
+  if (wan > 0) {
+    result += convertSection(wan) + '萬'
+    if (rest > 0 && rest < 1000) result += CN_DIGITS[0]
+  }
+  result += convertSection(rest)
+  if (wan === 0 && result.startsWith('一十')) result = result.slice(1)
+  return result
+}
+const chapterLabel = (index) => `第${toChineseNumber(index)}章`
+
+// === 說話者標記解析 ===
+// 段落若以 [角色] 開頭 → speaker = 角色,text = 去掉標記後的內容
+// 否則 speaker = null(旁白),text = 原段落
+function parseSpeaker(paragraph) {
+  const m = paragraph.match(/^\[([^\]]+)\]\s*(.*)$/s)
+  if (m) {
+    return { speaker: m[1].trim(), text: m[2].trim() }
+  }
+  return { speaker: null, text: paragraph }
+}
+
+// === frontmatter 解析 ===
 function parseFrontmatter(raw) {
   const meta = {}
   const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/)
@@ -40,6 +93,7 @@ function parseFrontmatter(raw) {
   return { meta, body: body.trim() }
 }
 
+// 內文 → 段落陣列(每段拆出 speaker + text);同時保留純文字版供顯示
 function toParagraphs(body) {
   return body
     .split(/\n/)
@@ -50,8 +104,8 @@ function toParagraphs(body) {
 const pad = (n) => String(n).padStart(2, '0')
 const fileNameOf = (volOrder, chapIdx) => `${pad(volOrder)}-${pad(chapIdx)}.md`
 
-// 產生一章的 md 字串
-function buildMd({ volumeTitle, volumeOrder, number, title, chapterIndex, content }) {
+// 產生 md(number 改由後端依 index 自動中文化,不再收前端 number)
+function buildMd({ volumeTitle, volumeOrder, title, chapterIndex, content }) {
   const volumeId = `vol${volumeOrder}`
   const normalizedBody = String(content)
     .replace(/\r\n/g, '\n')
@@ -64,7 +118,7 @@ function buildMd({ volumeTitle, volumeOrder, number, title, chapterIndex, conten
     `volume: ${String(volumeTitle).trim()}\n` +
     `volumeId: ${volumeId}\n` +
     `volumeOrder: ${volumeOrder}\n` +
-    `number: ${number ? String(number).trim() : `第${chapterIndex}章`}\n` +
+    `number: ${chapterLabel(chapterIndex)}\n` +
     `title: ${String(title).trim()}\n` +
     `index: ${chapterIndex}\n` +
     `---\n\n` +
@@ -97,14 +151,19 @@ async function buildBook(bookId, bookMeta) {
       })
     }
     const vol = volumeMap.get(volumeId)
+    const rawParas = toParagraphs(body)
+    // 每段拆出 speaker + text(配音用 speaker,顯示用 text)
+    const segments = rawParas.map(parseSpeaker)
     vol.chapters.push({
       id: meta.id || `ch${meta.index ?? vol.chapters.length + 1}`,
       index: Number(meta.index ?? 0),
       volumeId,
-      number: meta.number || '',
+      number: meta.number || chapterLabel(Number(meta.index ?? 0)),
       title: meta.title || '未命名章節',
-      paragraphs: toParagraphs(body),
-      // 編輯用:回傳原始檔名與原始內文(段落用 \n\n 接回),方便前端帶入
+      // paragraphs:給顯示用(已去掉 [角色] 標記)
+      paragraphs: segments.map((s) => s.text),
+      // segments:給配音用(含 speaker)
+      segments,
       _file: file,
       _rawBody: body.trim(),
     })
@@ -115,7 +174,6 @@ async function buildBook(bookId, bookMeta) {
   return { ...bookMeta, volumes }
 }
 
-// 書籍中繼資料
 const BOOK_META = {
   loen: {
     id: 'loen',
@@ -138,6 +196,21 @@ app.get('/api/books/:bookId', async (req, res) => {
   }
 })
 
+// === 讀卷清單(上傳頁下拉用)===
+app.get('/api/books/:bookId/volumes', async (req, res) => {
+  const meta = BOOK_META[req.params.bookId]
+  if (!meta) return res.status(404).json({ error: '找不到這本書' })
+  try {
+    const book = await buildBook(req.params.bookId, meta)
+    // 回傳精簡的卷清單:卷號 + 卷名
+    const volumes = book.volumes.map((v) => ({ order: v.order, title: v.title }))
+    res.json({ volumes })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: '讀取失敗' })
+  }
+})
+
 // === 讀單一章節(編輯帶入用)===
 app.get('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
   const { bookId, chapterId } = req.params
@@ -152,7 +225,6 @@ app.get('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
           volumeOrder: v.order,
           volumeTitle: v.title,
           chapterIndex: ch.index,
-          number: ch.number,
           title: ch.title,
           content: ch._rawBody,
           file: ch._file,
@@ -166,7 +238,7 @@ app.get('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
   }
 })
 
-// 驗證 payload
+// 驗證 payload(number 不再需要)
 function validate(body) {
   const errors = []
   const volOrderNum = Number(body.volumeOrder)
@@ -213,7 +285,6 @@ app.post('/api/books/:bookId/chapters', async (req, res) => {
 })
 
 // === 更新章節 ===
-// chapterId 用來定位原本那一章;新內容若改了卷/章號,會搬到新檔名並刪舊檔
 app.put('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
   const { bookId, chapterId } = req.params
   const meta = BOOK_META[bookId]
@@ -224,7 +295,6 @@ app.put('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
 
   const dir = contentDir(bookId)
 
-  // 先找出原本那章的檔名
   let oldFile = null
   try {
     const book = await buildBook(bookId, meta)
@@ -240,13 +310,12 @@ app.put('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
   const newFile = fileNameOf(volOrderNum, chapIdxNum)
   const newPath = path.join(dir, newFile)
 
-  // 若改了卷/章號(檔名變了),新檔名不可撞到「別的」既有檔
   if (newFile !== oldFile) {
     try {
       await fs.access(newPath)
       return res.status(409).json({ error: `目標檔名已被佔用:${newFile}(該卷該章已存在)` })
     } catch {
-      /* 沒撞到,OK */
+      /* OK */
     }
   }
 
@@ -256,7 +325,6 @@ app.put('/api/books/:bookId/chapters/:chapterId', async (req, res) => {
       buildMd({ ...req.body, volumeOrder: volOrderNum, chapterIndex: chapIdxNum }),
       'utf-8',
     )
-    // 檔名換了 → 刪掉舊檔
     if (newFile !== oldFile) {
       await fs.rm(path.join(dir, oldFile), { force: true })
     }
