@@ -5,12 +5,15 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
 import { useReader, useReaderPrefs } from '@/composables/useReader'
 import { useIsMobile } from '@/composables/useIsMobile'
+import { useSpeech } from '@/composables/useSpeech'
+import { useVoiceAssignment } from '@/composables/useVoiceAssignment'
 import { fetchBook, emptyBook, DEFAULT_BOOK_ID } from '@/data/loadNovel'
 import ReaderTopbar from '@/components/reader/ReaderTopbar.vue'
 import ReaderSidebar from '@/components/reader/ReaderSidebar.vue'
 import ReaderScroll from '@/components/reader/ReaderScroll.vue'
 import ReaderFlip from '@/components/reader/ReaderFlip.vue'
 import ReaderToolbar from '@/components/reader/ReaderToolbar.vue'
+import ReaderSpeechBar from '@/components/reader/ReaderSpeechBar.vue'
 
 const router = useRouter()
 const themeStore = useThemeStore()
@@ -24,9 +27,32 @@ const { current, hasPrev, hasNext, goPrev, goNext, goTo } = useReader(book)
 const { fontScale, pageMode, fontDown, fontUp, setPageMode } = useReaderPrefs()
 
 const contentFontSize = computed(() => `${(fontScale.value / 100) * 1.25}rem`)
-
-// 手機一律用滑動模式(翻頁在窄螢幕體驗差);桌機沿用使用者選擇
 const effectivePageMode = computed(() => (isMobile.value ? 'scroll' : pageMode.value))
+
+// === 朗讀 ===
+const speech = useSpeech()
+// 本章 segments(配音用,含 speaker)
+const segments = computed(() => current.value?.chapter.segments ?? [])
+// 本章出現過的角色(去重、依出現順序),給聲音分配
+const speakers = computed(() => {
+  const seen: string[] = []
+  for (const s of segments.value) {
+    if (s.speaker && !seen.includes(s.speaker)) seen.push(s.speaker)
+  }
+  return seen
+})
+const { voiceForSpeaker } = useVoiceAssignment(speech.voices, speakers)
+
+// 高亮:只在滑動模式有意義
+const highlightIndex = computed(() =>
+  effectivePageMode.value === 'scroll' ? speech.currentIndex.value : -1,
+)
+
+function startSpeak() {
+  speech.play(segments.value, { voiceForSpeaker })
+}
+// 換章 → 停止朗讀(避免念到別章)
+watch(current, () => speech.stop())
 
 async function load() {
   loading.value = true
@@ -41,27 +67,15 @@ async function load() {
 }
 onMounted(load)
 
-// 齒輪 → 帶該章 id 跳到編輯頁
 function editChapter(chapterId: string) {
   router.push({ path: '/upload', query: { edit: chapterId } })
 }
 
-// === 側欄開合 ===
-// 桌機預設展開;手機預設收起(進來先看內文,目錄當抽屜)
 const sidebarOpen = ref(true)
-// 進入頁面與切換手機/桌機時,套用合理預設
-watch(
-  isMobile,
-  (m) => {
-    sidebarOpen.value = !m
-  },
-  { immediate: true },
-)
+watch(isMobile, (m) => { sidebarOpen.value = !m }, { immediate: true })
 function toggleSidebar() {
   sidebarOpen.value = !sidebarOpen.value
 }
-
-// 手機:選完章 / 點遮罩 → 自動關抽屜
 function selectChapter(chapterId: string) {
   goTo(chapterId)
   if (isMobile.value) sidebarOpen.value = false
@@ -73,9 +87,7 @@ function closeSidebarOnMobile() {
 const expandedVolumes = ref<Set<string>>(new Set())
 watch(
   current,
-  (c) => {
-    if (c) expandedVolumes.value.add(c.volume.id)
-  },
+  (c) => { if (c) expandedVolumes.value.add(c.volume.id) },
   { immediate: true },
 )
 function toggleVolume(id: string) {
@@ -102,7 +114,6 @@ function toggleVolume(id: string) {
     </div>
 
     <div v-else class="body">
-      <!-- 手機抽屜遮罩:側欄開著時出現,點一下關閉 -->
       <div
         v-if="isMobile && sidebarOpen"
         class="sidebar-overlay"
@@ -129,6 +140,7 @@ function toggleVolume(id: string) {
           v-if="effectivePageMode === 'scroll'"
           :current="current"
           :font-size="contentFontSize"
+          :highlight-index="highlightIndex"
         />
         <ReaderFlip
           v-else
@@ -140,6 +152,19 @@ function toggleVolume(id: string) {
           :has-next="hasNext"
           @prev-chapter="goPrev"
           @next-chapter="goNext"
+        />
+
+        <!-- 朗讀工具列 -->
+        <ReaderSpeechBar
+          :supported="speech.supported"
+          :is-playing="speech.isPlaying.value"
+          :is-paused="speech.isPaused.value"
+          :rate="speech.rate.value"
+          @play="startSpeak"
+          @pause="speech.pause"
+          @resume="speech.resume"
+          @stop="speech.stop"
+          @set-rate="speech.setRate"
         />
 
         <ReaderToolbar
@@ -186,12 +211,11 @@ function toggleVolume(id: string) {
   flex-basis: 0; width: 0; opacity: 0; overflow: hidden; border-right-color: transparent;
 }
 
-/* 手機抽屜遮罩 */
 .sidebar-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 35;             /* 在側欄(40)之下、內容之上 */
+  z-index: 35;
   animation: overlay-fade 0.2s ease;
 }
 @keyframes overlay-fade {
@@ -217,9 +241,7 @@ function toggleVolume(id: string) {
 }
 .sidebar-toggle:hover { color: #f0d89a; border-color: var(--gold); }
 
-/* 平板/手機:抽屜收合改用 transform 滑出(而非壓寬度),才不會被壓扁變形 */
 @media (max-width: 1024px) {
-  /* 收合時還原寬度(交回 .sidebar 自身的斷點設定),只用位移把抽屜滑出左側 */
   .reader.sidebar-closed :deep(.sidebar) {
     width: revert; flex-basis: revert; opacity: 1; overflow-y: auto;
     transform: translateX(-100%);
@@ -227,7 +249,6 @@ function toggleVolume(id: string) {
   }
 }
 
-/* 手機:內文不再為側欄讓寬(抽屜是浮層),收合按鈕放大好點 */
 @media (max-width: 768px) {
   .content-wrap :deep(.page) { max-width: 100%; }
   .reader.sidebar-closed .content-wrap :deep(.page) { max-width: 100%; }
