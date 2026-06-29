@@ -2,13 +2,13 @@
 import type { Volume, Chapter } from '@/types/novel'
 
 // 章節標題 + 分隔線 + 段落。滑動模式與翻頁模式共用。
-// showHeader: 翻頁模式只有第一頁顯示標題
-// paragraphs: 要顯示的段落(滑動=整章;翻頁=當前頁那幾段)
+// highlightIndex: 正在朗讀的段落 index(-1 = 無);只在滑動模式會傳入。
 defineProps<{
   volume: Volume
   chapter: Chapter
   paragraphs: string[]
   showHeader?: boolean
+  highlightIndex?: number
 }>()
 </script>
 
@@ -23,7 +23,12 @@ defineProps<{
         <span class="divider-line"></span>
       </div>
     </template>
-    <p v-for="(para, i) in paragraphs" :key="i" class="para">{{ para }}</p>
+    <p
+      v-for="(para, i) in paragraphs"
+      :key="i"
+      class="para"
+      :class="{ speaking: highlightIndex === i }"
+    >{{ para }}</p>
   </div>
 </template>
 
@@ -68,8 +73,21 @@ defineProps<{
   color: var(--coffee);
   margin-bottom: 4px;
   text-align: justify;
+  transition: background 0.3s, box-shadow 0.3s;
+  border-radius: 4px;
 }
 [data-theme='dark'] .para { color: #e3d3b0; }
+
+/* 正在朗讀的段落:淡金底 + 左側標記 */
+.para.speaking {
+  background: rgba(184, 138, 59, 0.18);
+  box-shadow: inset 3px 0 0 var(--gold);
+  padding-left: 12px;
+  margin-left: -12px;
+}
+[data-theme='light'] .para.speaking {
+  background: rgba(154, 111, 42, 0.14);
+}
 
 @media (max-width: 768px) {
   .chap-title { font-size: 26px; }
